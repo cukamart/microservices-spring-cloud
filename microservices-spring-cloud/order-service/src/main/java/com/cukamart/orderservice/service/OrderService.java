@@ -14,11 +14,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@Transactional
 public class OrderService {
 
     private final OrderRepository orderRepository;
@@ -28,9 +30,7 @@ public class OrderService {
         this.orderRepository = orderRepository;
         this.webClientBuilder = webClientBuilder;
     }
-
-    @Transactional
-    public void placeOrder(OrderRequest orderRequest) throws IllegalAccessException {
+    public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
 
@@ -52,14 +52,15 @@ public class OrderService {
                                                           .bodyToMono(new ParameterizedTypeReference<List<InventoryResponse>>() {})
 //                                                          .onErrorResume(WebClientResponseException.NotFound.class, notFound -> Mono.empty())
                                                           .blockOptional()
-                                                          .orElseThrow(() -> new IllegalAccessException("Product is not in stock, please try again later."));
+                                                          .orElseGet(ArrayList::new);
 
         boolean allProductsInStock = inventoryResponses.stream().allMatch(InventoryResponse::isInStock);
 
         if (allProductsInStock) {
             orderRepository.save(order);
+            return "Order Placed Successfully";
         } else {
-            throw new IllegalAccessException("Product is not in stock, please try again later.");
+            throw new IllegalArgumentException("Product is not in stock, please try again later");
         }
 
     }
