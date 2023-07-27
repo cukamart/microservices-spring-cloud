@@ -15,6 +15,7 @@ POM - externalized versions
 MAVEN - modularized services further to multiple maven modules
 Inventory Response - used in multiple microservices - how to handle ??
 webClient - hardcoded url how to make it environment independent ?
+dont use "latest in docker specify version"
 
 eureka neregistruje multiple instances of 1 service
 intellij neukazuje porty beziacich service
