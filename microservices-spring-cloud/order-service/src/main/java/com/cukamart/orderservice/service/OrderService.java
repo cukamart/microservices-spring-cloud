@@ -3,6 +3,7 @@ package com.cukamart.orderservice.service;
 import com.cukamart.orderservice.dto.InventoryResponse;
 import com.cukamart.orderservice.dto.OrderLineItemDto;
 import com.cukamart.orderservice.dto.OrderRequest;
+import com.cukamart.orderservice.event.OrderPlacedEvent;
 import com.cukamart.orderservice.model.Order;
 import com.cukamart.orderservice.model.OrderLineItem;
 import com.cukamart.orderservice.repository.OrderRepository;
@@ -11,6 +12,7 @@ import io.micrometer.observation.ObservationRegistry;
 import jakarta.transaction.Transactional;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -25,11 +27,14 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
     private final ObservationRegistry observationRegistry;
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
-    public OrderService(OrderRepository orderRepository, WebClient.Builder webClientBuilder, ObservationRegistry observationRegistry) {
+    public OrderService(OrderRepository orderRepository, WebClient.Builder webClientBuilder, ObservationRegistry observationRegistry,
+                        KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate) {
         this.orderRepository = orderRepository;
         this.webClientBuilder = webClientBuilder;
         this.observationRegistry = observationRegistry;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public String placeOrder(OrderRequest orderRequest) {
@@ -45,8 +50,7 @@ public class OrderService {
                 .toList();
 
         // distributed tracing micrometer
-        Observation inventoryServiceObservation = Observation.createNotStarted("inventory-service-lookup",
-                this.observationRegistry);
+        Observation inventoryServiceObservation = Observation.createNotStarted("inventory-service-lookup", this.observationRegistry);
         inventoryServiceObservation.lowCardinalityKeyValue("call", "inventory-service");
 
         // Call inventory Service, and place order if product is in stock - synchronous request
@@ -58,7 +62,7 @@ public class OrderService {
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<List<InventoryResponse>>() {
                     })
-//                                                          .onErrorResume(WebClientResponseException.NotFound.class, notFound -> Mono.empty())
+//                  .onErrorResume(WebClientResponseException.NotFound.class, notFound -> Mono.empty())
                     .blockOptional()
                     .orElseGet(ArrayList::new);
 
@@ -66,6 +70,7 @@ public class OrderService {
 
             if (allProductsInStock) {
                 orderRepository.save(order);
+                kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
                 return "Order Placed Successfully";
             } else {
                 throw new IllegalArgumentException("Product is not in stock, please try again later");
