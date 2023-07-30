@@ -1,6 +1,57 @@
 http://localhost:8080/eureka/web - eureka dashboard (through api-gateway)
 http://localhost:8081/actuator - spring boot actuator
 
+
+-----------------------START DOCKER----------------------------
+https://springframework.guru/why-you-should-be-using-spring-boot-docker-layers/
+
+JAVA 9
+Multi-Stage Docker Build
+
+https://cloud.google.com/blog/products/application-development/introducing-jib-build-java-docker-images-better
+
+https://tomgregory.com/jib-vs-spring-boot-for-building-docker-images/
+
+<plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>3.2.1</version>
+                <configuration>
+                    <from>
+                        <image>eclipse-temurin:17.0.4.1_1-jre</image>
+                    </from>
+                    <to>
+<!--                        <image>microservices-tutorial/${project.artifactId}</image>-->
+                        <image>registry.hub.docker.com/cukamart/${project.artifactId}</image>
+                    </to>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>dockerBuild</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+mvn clean compile jib:build
+
+copy to m2 folder - settings.xml
+<servers>
+<server>
+<id>registry.hub.docker.com</id>
+<username>your_docker_hub_id</username>
+<password>your_password</password>
+</server>
+</servers>
+
+docker compose up -d
+docker logs -f broker
+docker logs -f order-service
+-----------------------END DOCKER----------------------------
+
+
 RUN docker container (mysql 8.x):
 docker run -d -p 3306:3306 --name mysql-container -e MYSQL_ROOT_PASSWORD=mysql mysql:latest
 open Mysql WorkBench connect to it.

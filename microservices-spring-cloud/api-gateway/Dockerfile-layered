@@ -1,0 +1,21 @@
+# docker build -t apigateway-layered -f Dockerfile-layered .
+
+# base docker image (using jre instead of jdk - less size), alias for docker image is builder
+FROM eclipse-temurin:17.0.4.1_1-jre as builder
+# creating a new folder
+WORKDIR extracted
+# adding jar file inside of target folder to the docker container named as app.jar
+ADD target/*.jar app.jar
+# as part of java 9 java supports extracting different layers from the jar files
+RUN java -Djarmode=layertools -jar app.jar extract
+
+# https://springframework.guru/why-you-should-be-using-spring-boot-docker-layers/
+
+FROM eclipse-temurin:17.0.4.1_1-jre
+WORKDIR application
+COPY --from=builder extracted/dependencies/ ./
+COPY --from=builder extracted/spring-boot-loader/ ./
+COPY --from=builder extracted/snapshot-dependencies/ ./
+COPY --from=builder extracted/application/ ./
+EXPOSE 8080
+ENTRYPOINT ["java", "org.springframework.boot.loader.JarLauncher"]
